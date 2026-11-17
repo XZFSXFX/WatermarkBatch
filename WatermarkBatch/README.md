@@ -12,9 +12,25 @@
 2. 双击 `WatermarkBatch.xcodeproj` 用 Xcode 16 打开；
 3. TARGETS → WatermarkBatch → Signing & Capabilities：勾选 **Automatically manage signing**，选择你的 Team（个人免费 Apple ID 即可）；
 4. 顶部设备栏选你的 iPhone（真机）或任一 iOS 17+ 模拟器 → **Cmd+R**；
-5. （可选）**Cmd+U** 运行 `WatermarkBatchTests`：内含源码守卫用例（源码扫描断言「导出链路禁止缩略图解码 / 尺寸上限」，见 `Tests/SourceGuardTests.swift`）。测试 target 已在 `project.pbxproj` 建好，并挂在共享 scheme `WatermarkBatch.xcodeproj/xcshareddata/xcschemes/WatermarkBatch.xcscheme` 的 Test 动作上，无需手动添加。
+5. （可选）**Cmd+U** 运行 `WatermarkBatchTests`：内含源码守卫用例（源码扫描断言「导出链路禁止缩略图解码 / 尺寸上限」，见 `Tests/SourceGuardTests.swift`）。测试 target 由同目录 `project.yml` 声明，挂在共享 scheme `WatermarkBatch` 的 Test 动作上，无需手动添加。
 
 > 真机首次运行：系统会弹相册权限（文案见下），选「允许完全访问」才能批量读取；「仅添加」权限只能写不能读，App 内会有明确引导。
+
+### 工程文件是生成的，不要手改 `project.pbxproj`
+
+`WatermarkBatch.xcodeproj/project.pbxproj` 是**生成物**，唯一真相来源是仓库根目录的 `project.yml`（XcodeGen 描述文件）。
+
+```bash
+brew install xcodegen
+xcodegen generate            # 覆盖生成 WatermarkBatch.xcodeproj
+```
+
+- **加 / 删 / 移动 `.swift` 文件不用改工程**：`sources` 按目录递归收集，重新生成一次即可；
+- 改 Bundle ID、部署版本、编译开关：改 `project.yml` 的 `settings`。在 Xcode UI 里改的构建设置下次生成会被覆盖，别在 UI 里改；
+- 包内仍附一份**语法校验通过**的 `WatermarkBatch.xcodeproj`，没装 xcodegen 也能直接双击打开；但它随时可能被重新生成覆盖，不作为权威；
+- 校验工具：`python3 Tools/verify/validate_pbxproj.py WatermarkBatch.xcodeproj/project.pbxproj`（OpenStep plist 语法 + 悬空 UUID 引用，退出码非 0 即不合法）。CI 在生成后会跑这一条。
+
+> 为什么不用手写：pbxproj 的合法性由 OpenStep plist 语法管（每条 `key = value` 必须 `;` 结尾、裸字符串不得含逗号/括号/中文），而 `xcodebuild` 只有解析成功之后才轮到编译报错——手写期间它一直处在「没有任何检查」的状态。
 
 ---
 

@@ -1,0 +1,67 @@
+name: iOS Build
+
+# 工程文件由 XcodeGen 从 project.yml 生成，CI 与本地走同一条路径：
+#   xcodegen generate → 校验 pbxproj → xcodebuild
+# 手改 project.pbxproj 在 CI 里不会生效（会被重新生成覆盖），这是故意的。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: 生成工程 · 编译 · 守卫单测
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装 XcodeGen
+        run: brew install xcodegen
+
+      - name: 生成 .xcodeproj
+        run: xcodegen generate
+
+      - name: 校验生成的 pbxproj（OpenStep plist 语法 + 悬空 UUID）
+        run: python3 WatermarkBatch/Tools/verify/validate_pbxproj.py WatermarkBatch.xcodeproj/project.pbxproj
+
+      - name: 编译（模拟器，不签名）
+        run: |
+          set -o pipefail
+          xcodebuild -project WatermarkBatch.xcodeproj \
+                     -scheme WatermarkBatch \
+                     -configuration Debug \
+                     -destination 'generic/platform=iOS Simulator' \
+                     -quiet \
+                     CODE_SIGNING_ALLOWED=NO \
+                     build 2>&1 | tee build.log
+
+      # 只跑不依赖相册的两套：源码守卫（静态扫描）+ 并发限流（纯状态机）。
+      # AcceptanceTests 需要真机相册与真实素材（Live Photo / 4K HDR / 音频 md5），
+      # 在模拟器上必然失败，属于真机验收清单，不进 CI。
+      - name: 单元测试（SourceGuardTests + ConcurrencyLimiterTests）
+        run: |
+          set -o pipefail
+          xcodebuild test -project WatermarkBatch.xcodeproj \
+                          -scheme WatermarkBatch \
+                          -destination 'platform=iOS Simulator,name=iPhone 16' \
+                          -quiet \
+                          CODE_SIGNING_ALLOWED=NO \
+                          -only-testing:WatermarkBatchTests/SourceGuardTests \
+                          -only-testing:WatermarkBatchTests/ConcurrencyLimiterTests 2>&1 | tee test.log
+
+      - name: 失败时回传日志
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: |
+            build.log
+            test.log
+          if-no-files-found: ignore
