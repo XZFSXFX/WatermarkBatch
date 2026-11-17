@@ -1,0 +1,88 @@
+name: build
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dryrun=只查环境 / build=编译 / test=编译+单测 / archive=出未签名 ipa"
+        required: true
+        default: dryrun
+        type: choice
+        options:
+          - dryrun
+          - build
+          - test
+          - archive
+
+jobs:
+  run:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: "1 环境信息"
+        run: |
+          xcodebuild -version
+          sw_vers
+          xcrun simctl list devices available | head -40
+
+      - name: "2 scheme 与 target"
+        run: |
+          xcodebuild -list -project WatermarkBatch.xcodeproj 2>&1 | tee list.log
+
+      - name: "3 编译（不签名）"
+        if: inputs.mode == 'build' || inputs.mode == 'test' || inputs.mode == 'archive'
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project WatermarkBatch.xcodeproj \
+            -scheme WatermarkBatch \
+            -destination 'generic/platform=iOS' \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            build 2>&1 | tee build.log | tail -n 300
+          echo "==== ERROR 按文件汇总 ===="
+          grep -E "error:" build.log | sed -E 's/.*\/([^/]+\.swift):.*/\1/' | sort | uniq -c | sort -rn | head -30 || true
+          echo "==== ERROR 总数 ===="
+          grep -cE "error:" build.log || true
+
+      - name: "4 单元测试（模拟器）"
+        if: inputs.mode == 'test'
+        run: |
+          set -o pipefail
+          DEV=$(xcrun simctl list devices available | grep -oE "iPhone [0-9]+[^\"]*" | head -1)
+          echo "device=$DEV"
+          xcodebuild \
+            -project WatermarkBatch.xcodeproj \
+            -scheme WatermarkBatch \
+            -destination "platform=iOS Simulator,name=$DEV" \
+            CODE_SIGNING_ALLOWED=NO \
+            test 2>&1 | tee test.log | tail -n 250
+
+      - name: "5 Archive 出未签名 ipa"
+        if: inputs.mode == 'archive'
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project WatermarkBatch.xcodeproj \
+            -scheme WatermarkBatch \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/App.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
+          mkdir -p build/Payload
+          cp -R build/App.xcarchive/Products/Applications/*.app build/Payload/
+          cd build && zip -qry WatermarkBatch-unsigned.ipa Payload
+          ls -lh WatermarkBatch-unsigned.ipa
+
+      - name: "6 上传日志与产物"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: outputs
+          path: |
+            build.log
+            test.log
+            list.log
+            build/WatermarkBatch-unsigned.ipa
+          if-no-files-found: ignore
