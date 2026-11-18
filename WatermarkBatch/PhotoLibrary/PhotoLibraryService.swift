@@ -10,7 +10,9 @@
 //  下载原图失败抛 iCloudDownloadFailed，绝不静默用缩略图替代（PRD F-02）。
 //
 
-import AVFoundation
+// AVFoundation 在 Swift 6 严格并发下未给 AVAsset / AVAssetExportSession 标注 Sendable，
+// 按 Apple 迁移期的标准做法用 @preconcurrency 把这部分跨隔离域诊断降级为警告。
+@preconcurrency import AVFoundation
 import CoreGraphics
 import CoreMedia
 import CryptoKit
