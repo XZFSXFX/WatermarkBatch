@@ -451,7 +451,10 @@ final class PhotoLibraryService: @unchecked Sendable {
             throw WatermarkError.unsupportedFormat("视频轨格式信息缺失")
         }
         let codec = Self.fourCharCodeString(CMFormatDescriptionGetMediaSubType(description))
-        let bitDepth = CMVideoFormatDescriptionGetBitsPerComponent(description)
+        let bitDepth = (CMFormatDescriptionGetExtension(
+            description,
+            extensionKey: kCMFormatDescriptionExtension_BitsPerComponent
+        ) as? Int) ?? 0
         var colorPrimaries: String?
         if let extensions = CMCopyFormatDescriptionExtensions(description) as? [String: Any] {
             colorPrimaries = extensions[kCMFormatDescriptionExtension_ColorPrimaries as String] as? String

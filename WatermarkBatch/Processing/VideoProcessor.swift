@@ -333,7 +333,7 @@ enum VideoWatermarkPipeline {
         let asset = AVURLAsset(url: url)
         guard let track = try? await asset.loadTracks(withMediaType: .video).first else { return nil }
         let descriptions = (try? await track.load(.formatDescriptions)) ?? []
-        guard let description = descriptions.first as? CMVideoFormatDescription else { return nil }
+        guard let description = descriptions.first else { return nil }
         switch codec {
         case .h264:
             return VideoWriterConfig.h264Level(from: description)?.level
@@ -398,7 +398,7 @@ final class LoadedSource: @unchecked Sendable {
             throw WatermarkError.unsupportedFormat("视频无视频轨")
         }
         let descriptions = try await videoTrack.load(.formatDescriptions)
-        guard let description = descriptions.first as? CMVideoFormatDescription else {
+        guard let description = descriptions.first else {
             throw WatermarkError.unsupportedFormat("视频轨缺少格式描述")
         }
         let fourCC = PhotoLibraryService.fourCharCodeString(CMFormatDescriptionGetMediaSubType(description))
@@ -443,7 +443,7 @@ final class LoadedSource: @unchecked Sendable {
                             outputHeight: height,
                             transform: transform,
                             frameRate: frameRate,
-                            sourceBitrate: max(bitrate, 0),
+                            sourceBitrate: Double(max(bitrate, 0)),
                             duration: duration,
                             fileType: fileType,
                             workingColorSpace: colorSpace)

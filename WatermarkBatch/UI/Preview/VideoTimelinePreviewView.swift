@@ -14,7 +14,9 @@
 //  - 配置快照放线程安全盒子里逐帧读取，手势调整水印不会重建 composition。
 //
 
-import AVFoundation
+// AVAssetTrack 等 AVFoundation 类型在 Swift 6 严格并发下未标注 Sendable，
+// 本文件只做预览（跨 actor 传递的是播放对象），按编译器建议用 @preconcurrency 降级为警告。
+@preconcurrency import AVFoundation
 import SwiftUI
 import UIKit
 
@@ -246,8 +248,8 @@ struct VideoTimelinePreviewView: View {
         state = .loading(progress: nil)
         do {
             let url = try await model.library.originalVideoURL(for: asset) { fraction in
-                Task { @MainActor [weak self] in
-                    guard let self, case .loading = self.state else { return }
+                Task { @MainActor in
+                    guard case .loading = self.state else { return }
                     self.state = .loading(progress: fraction)
                 }
             }
@@ -351,8 +353,8 @@ struct VideoTimelinePreviewView: View {
         }
         let interval = CMTime(value: 1, timescale: 20)   // 50ms 刷新
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { time in
-            Task { @MainActor [weak self] in
-                guard let self, self.isPlaying else { return }
+            Task { @MainActor in
+                guard self.isPlaying else { return }
                 let seconds = time.seconds
                 if seconds.isFinite { self.currentTime = min(max(seconds, 0), self.duration) }
             }

@@ -79,7 +79,7 @@ final class AssetCachingManager: @unchecked Sendable {
         options.isSynchronous = false
         options.isNetworkAccessAllowed = true   // 仅为显示缩略图联网，不违反纯本地原则（原图数据仍本地处理）
         let image: CGImage? = await withCheckedContinuation { continuation in
-            nonisolated(unsafe) let phAsset = phAsset
+            let phAsset = phAsset
             cachingManager.requestImage(
                 for: phAsset,
                 targetSize: targetSize,

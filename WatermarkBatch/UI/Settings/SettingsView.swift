@@ -165,7 +165,7 @@ struct SettingsView: View {
                 get: { model.settings.notifyOnFinish },
                 set: { value in
                     model.updateSettings { $0.notifyOnFinish = value }
-                    if value { Task { _ = await NotificationManager.requestAuthorizationIfNeeded() } }
+                    if value { Task { _ = await NotificationManager.shared.requestAuthorizationIfNeeded() } }
                 }
             )) {
                 VStack(alignment: .leading, spacing: 2) {

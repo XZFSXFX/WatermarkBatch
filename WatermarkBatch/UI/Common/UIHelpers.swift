@@ -220,12 +220,15 @@ struct TextFileDocument: FileDocument {
 enum PhotoAppLink {
 
     /// 打开系统「照片」App（`photos-redirect://` 为系统公开可用的重定向 scheme）。
+    /// UIApplication.shared 是 @MainActor 隔离的属性，故本方法也必须标注 @MainActor。
+    @MainActor
     static func openPhotosApp() {
         guard let url = URL(string: "photos-redirect://") else { return }
         UIApplication.shared.open(url)
     }
 
     /// 打开本 App 的系统设置页（权限被拒时的引导出口）。
+    @MainActor
     static func openAppSettings() {
         guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
         UIApplication.shared.open(url)

@@ -84,7 +84,7 @@ enum WatermarkTextRenderer {
 
         // 整个上下文按 pt 空间缩放：字号/字间距/描边/阴影模糊半径全部随之缩放，
         // 文字始终矢量光栅化到目标分辨率（预览与导出各自的目标分辨率），无中间缩放副本。
-        ctx.scaleCTM(pixelsPerPoint, pixelsPerPoint)
+        ctx.scaleBy(x: CGFloat(pixelsPerPoint), y: CGFloat(pixelsPerPoint))
 
         if let shadowColor {
             // 阴影偏移采用 UIKit 习惯（Y 正值向下）；CG 坐标 Y 向上，故取负。
@@ -142,14 +142,11 @@ enum WatermarkTextRenderer {
     /// PostScript 名 → CTFont。未命中的名字由 CoreText 自动替换为系统可用字体（不中断批处理）；
     /// 再按序兜底 PingFangSC-Semibold（契约默认字体）与系统字体。
     private static func resolveFont(name: String, sizePt: CGFloat) -> CTFont {
-        if !name.isEmpty, let font = CTFontCreateWithName(name as CFString, sizePt, nil) {
-            return font
-        }
-        if let fallback = CTFontCreateWithName("PingFangSC-Semibold" as CFString, sizePt, nil) {
-            return fallback
-        }
-        return CTFontCreateUIFontForLanguage(.system, sizePt, nil)
-            ?? CTFontCreateWithName("Helvetica" as CFString, sizePt, nil)!
+        // CTFontCreateWithName 返回非可选 CTFont：PostScript 名未命中时由 CoreText 自动
+        // 替换为可用字体（不中断批处理），因此这里既不需要也无法用条件绑定兜底。
+        // 空名退回契约默认字体 PingFangSC-Semibold（iOS 必装，即便缺失也会被自动替换）。
+        let resolvedName = name.isEmpty ? "PingFangSC-Semibold" : name
+        return CTFontCreateWithName(resolvedName as CFString, sizePt, nil)
     }
 
     // MARK: - 颜色

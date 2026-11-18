@@ -221,7 +221,8 @@ enum VideoWriterConfig {
         case 30: return AVVideoProfileLevelH264High40   // 3.0 源极少见，取最近的公开档位 4.0
         case 31, 32, 40: return AVVideoProfileLevelH264High40
         case 41: return AVVideoProfileLevelH264High41
-        case 42: return AVVideoProfileLevelH264High42
+        // 4.2 无 AVFoundation 公开常量（只有 High40 / High41 / HighAutoLevel），
+        // 与 50/51/52 同处理：返回 nil → 上游退回 AutoLevel，由编码器按内容选不低于源的档位
         default: return nil
         }
     }
@@ -242,7 +243,10 @@ enum VideoWriterConfig {
     static func sourceProfile(from description: CMVideoFormatDescription,
                               codec: VideoCodec) -> VideoSourceProfile {
         let extensions = CMFormatDescriptionGetExtensions(description) as? [String: Any] ?? [:]
-        let bitDepthValue = CMVideoFormatDescriptionGetBitsPerComponent(description)
+        let bitDepthValue = (CMFormatDescriptionGetExtension(
+            description,
+            extensionKey: kCMFormatDescriptionExtension_BitsPerComponent
+        ) as? Int) ?? 0
         let bitDepth = bitDepthValue > 0 ? Int(bitDepthValue) : 8
 
         var level: Int?
