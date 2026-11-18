@@ -88,6 +88,10 @@ struct ProcessingPolicy: Sendable, Equatable {
     private static let tierKey = "batchmark.processingTier.v1"
     private static let pngKey = "batchmark.outputLosslessPNG.v1"
 
+    /// 「跳过已加水印」的判定维度（与 AppModel.watermarkKey / tasksExcludingWatermarked 同口径）：
+    /// 文件名相同 + 像素尺寸相同 + 存在创建时间更晚的副本 → 判定为已加水印。
+    static let skipDetectionDimensions = "文件名＋像素尺寸＋创建时间"
+
     /// 数值展示：1.3 / 1.0 / 0.95 原样。
     static func format(_ value: Double) -> String {
         if value == value.rounded() { return String(format: "%.1f", value) }

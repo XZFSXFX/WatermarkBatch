@@ -38,7 +38,7 @@ final class AlbumWriter: @unchecked Sendable {
         if let existing = existingAlbum(named: title) {
             return PHAssetCollectionChangeRequest(for: existing)
         }
-        return PHAssetCollectionChangeRequest.creationRequestForAlbum(withTitle: title)
+        return PHAssetCollectionChangeRequest.creationRequestForAssetCollection(withTitle: title)
     }
 
     /// 把新建资产的占位对象归入相簿。
@@ -46,6 +46,6 @@ final class AlbumWriter: @unchecked Sendable {
     /// placeholders 来自 PHAssetCreationRequest 的 placeholderForCreatedAsset。
     func add(_ placeholders: [PHObjectPlaceholder], to request: PHAssetCollectionChangeRequest) {
         guard !placeholders.isEmpty else { return }
-        request.addAssets(placeholders)
+        request.addAssets(placeholders as NSArray)
     }
 }

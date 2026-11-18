@@ -80,8 +80,8 @@ struct AnimatedPreviewView: View {
         outputImage = nil
         do {
             let data = try await model.library.originalImageData(for: asset) { fraction in
-                Task { @MainActor [weak self] in
-                    guard let self, case .loading = self.state else { return }
+                Task { @MainActor in
+                    guard case .loading = self.state else { return }
                     self.state = .loading(progress: fraction)
                 }
             }

@@ -146,11 +146,10 @@ final class BatchQueue: @unchecked Sendable {
     /// 为什么要把上限也放进来：UI 调试页要同时看「配了几个」和「还剩几个」，
     /// 否则只能看到空闲数、看不出档位是否真的生效（「优先速度」开关的验收点）。
     func debugSnapshot() async -> [String: Int] {
-        stateLock.lock()
-        let limiter = activeLimiter
-        let photoLimit = configuredPhotoLimit
-        let videoLimit = configuredVideoLimit
-        stateLock.unlock()
+        let inputs = snapshotLimiterInputs()
+        let limiter = inputs.limiter
+        let photoLimit = inputs.photoLimit
+        let videoLimit = inputs.videoLimit
 
         var snapshot: [String: Int]
         if let limiter {
@@ -177,6 +176,34 @@ final class BatchQueue: @unchecked Sendable {
     // MARK: 状态
 
     private let stateLock = NSLock()
+
+    // MARK: 同步临界区入口
+    // NSLock 的 lock/unlock 被标注为 noasync，不得在 async 函数体内直接调用；
+    // 所有跨 actor 的状态读写统一走下面四个非 async 入口，async 方法只调用它们。
+
+    private func setActiveLog(_ log: BatchLogWriter) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        activeLog = log
+        activeLogFileURL = log.fileURL
+    }
+
+    private func setActiveLimiter(_ limiter: ConcurrencyLimiter, photoLimit: Int, videoLimit: Int) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        activeLimiter = limiter
+        configuredPhotoLimit = photoLimit
+        configuredVideoLimit = videoLimit
+    }
+
+    private func clearActiveReferences() {
+        stateLock.lock(); defer { stateLock.unlock() }
+        activeLog = nil
+        activeLimiter = nil
+    }
+
+    private func snapshotLimiterInputs() -> (limiter: ConcurrencyLimiter?, photoLimit: Int, videoLimit: Int) {
+        stateLock.lock(); defer { stateLock.unlock() }
+        return (activeLimiter, configuredPhotoLimit, configuredVideoLimit)
+    }
     private var collectedOutputs: [ProcessedOutputBundle] = []
     private var collectedFailures: [BatchFailureItem] = []
     private var collectedRecords: [BatchTaskRecord] = []
@@ -215,10 +242,7 @@ final class BatchQueue: @unchecked Sendable {
         let peak = BatchMemoryMonitor.PeakTracker()
         let counters = BatchCounters(total: total)
 
-        stateLock.lock()
-        activeLog = log
-        activeLogFileURL = log.fileURL
-        stateLock.unlock()
+        setActiveLog(log)
 
         // 崩溃残留清理：杀掉 1 小时前未删的产物临时文件。跑在后台任务里，不阻塞调用方。
         let swept = ProcessingTempFile.sweepStaleFiles()
@@ -295,11 +319,7 @@ final class BatchQueue: @unchecked Sendable {
         let limiter = ConcurrencyLimiter(photoPermits: photoLimit,
                                          videoPermits: settings.videoConcurrency)
 
-        stateLock.lock()
-        activeLimiter = limiter
-        configuredPhotoLimit = photoLimit
-        configuredVideoLimit = settings.videoConcurrency
-        stateLock.unlock()
+        setActiveLimiter(limiter, photoLimit: photoLimit, videoLimit: settings.videoConcurrency)
 
         var pending = tasks
         var runningPhotos = 0
@@ -454,10 +474,7 @@ final class BatchQueue: @unchecked Sendable {
         log.finish(succeeded: final.succeeded, failed: final.failed, cancelled: final.cancelled)
         log.close()
 
-        stateLock.lock()
-        activeLog = nil
-        activeLimiter = nil
-        stateLock.unlock()
+        clearActiveReferences()
 
         continuation.finish()
     }

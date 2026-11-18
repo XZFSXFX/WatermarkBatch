@@ -487,7 +487,7 @@ final class AppModel {
         )
 
         if settings.notifyOnFinish {
-            Task { await NotificationManager.requestAuthorizationIfNeeded() }
+            Task { await NotificationManager.shared.requestAuthorizationIfNeeded() }
         }
 
         // 后台续跑：落盘待办 + 申请 BGProcessingTask 时间片（模拟器提交失败不影响前台）
