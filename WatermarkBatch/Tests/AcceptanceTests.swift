@@ -25,9 +25,9 @@
 //
 
 import XCTest
-import Photos
-// AVAssetTrack 等类型在 Swift 6 严格并发下未标注 Sendable；
+// PHLivePhoto / AVAssetTrack 等类型在 Swift 6 严格并发下未标注 Sendable；
 // 本文件是 @MainActor 的验收测试，按编译器建议用 @preconcurrency 降级为警告。
+@preconcurrency import Photos
 @preconcurrency import AVFoundation
 import ImageIO
 import UniformTypeIdentifiers
