@@ -131,16 +131,16 @@ final class AcceptanceTests: XCTestCase {
                                                           options: options) { photo, info in
                 guard box.claim() else { return }
 
-                if let error = info[PHLivePhotoInfoErrorKey] as? any Error {
+                if let error = info?[PHLivePhotoInfoErrorKey] as? Error {
                     continuation.resume(throwing: error)
                     return
                 }
-                if (info[PHLivePhotoInfoCancelledKey] as? Bool) == true {
+                if (info?[PHLivePhotoInfoCancelledKey] as? Bool) == true {
                     continuation.resume(throwing: CancellationError())
                     return
                 }
-                // 降级状态来自 resultHandler 的 info 字典，不是 PHLivePhoto 的成员
-                if let photo, (info[PHLivePhotoInfoIsDegradedKey] as? Bool) != true {
+                // 降级状态来自 resultHandler 的 info 字典（PHImageManager 回调里 info 是可选），不是 PHLivePhoto 的成员
+                if let photo, (info?[PHLivePhotoInfoIsDegradedKey] as? Bool) != true {
                     continuation.resume(returning: photo)
                     return
                 }
