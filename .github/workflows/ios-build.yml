@@ -57,6 +57,42 @@ jobs:
                           CODE_SIGNING_ALLOWED=NO \
                           -only-testing:WatermarkBatchTests/ConcurrencyLimiterTests 2>&1 | tee test.log
 
+      # 出包：真机 arm64、不签名。产物是未签名 .ipa，
+      # 拿到后在 Windows 上用 Sideloadly / AltStore 自签安装（免费 Apple ID 7 天有效）。
+      - name: 归档（真机，不签名）
+        run: |
+          set -o pipefail
+          xcodebuild archive -project WatermarkBatch.xcodeproj \
+                             -scheme WatermarkBatch \
+                             -configuration Release \
+                             -destination 'generic/platform=iOS' \
+                             -archivePath build/WatermarkBatch.xcarchive \
+                             -quiet \
+                             CODE_SIGNING_ALLOWED=NO \
+                             CODE_SIGNING_REQUIRED=NO 2>&1 | tee archive.log
+
+      - name: 打包未签名 .ipa
+        run: |
+          set -euo pipefail
+          APP="build/WatermarkBatch.xcarchive/Products/Applications/WatermarkBatch.app"
+          if [ ! -d "$APP" ]; then
+            echo "::error::归档产物里没有 WatermarkBatch.app"
+            find build -maxdepth 5 -type d | head -40
+            exit 1
+          fi
+          rm -rf Payload WatermarkBatch-unsigned.ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -qry WatermarkBatch-unsigned.ipa Payload
+          ls -lh WatermarkBatch-unsigned.ipa
+
+      - name: 上传未签名 .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: WatermarkBatch-ipa
+          path: WatermarkBatch-unsigned.ipa
+          if-no-files-found: error
+
       - name: 失败时回传日志
         if: failure()
         uses: actions/upload-artifact@v4
@@ -65,4 +101,5 @@ jobs:
           path: |
             build.log
             test.log
+            archive.log
           if-no-files-found: ignore
