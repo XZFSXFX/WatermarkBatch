@@ -152,7 +152,7 @@ final class BatchController {
     private var library: PhotoLibraryService?
     private var compositor: WatermarkCompositor?
     private var config: WatermarkConfig?
-    private var policy: ProcessingPolicy = .qualityFirst
+    private var policy: ProcessingPolicy = ProcessingPolicy()
     private var albumName: String?
     private var rawConsent = false
     private var originalTasks: [LibraryAsset] = []
