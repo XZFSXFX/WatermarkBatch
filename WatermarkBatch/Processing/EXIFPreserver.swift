@@ -257,7 +257,7 @@ enum EXIFPreserver {
     }
 
     /// 标准元数据分组（顺序固定，便于日志比对）。
-    private static let groupedMetadataKeys: [(String, CFString)] = [
+    nonisolated(unsafe) private static let groupedMetadataKeys: [(String, CFString)] = [
         ("EXIF", kCGImagePropertyExifDictionary),
         ("GPS", kCGImagePropertyGPSDictionary),
         ("TIFF", kCGImagePropertyTIFFDictionary),

@@ -13,7 +13,7 @@ import Foundation
 // MARK: - 素材类型
 
 /// 素材类型：照片 / Live Photo / 动图（GIF、动画 WebP）/ 视频 / RAW。
-enum MediaKind: String, Codable, Sendable, CaseIterable {
+enum MediaKind: String, Codable, Sendable, CaseIterable, Equatable {
     case photo, livePhoto, animated, video, raw
 }
 

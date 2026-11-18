@@ -55,7 +55,7 @@ enum TaskStatus: String, Codable, Sendable, Equatable {
 }
 
 /// 导出记录（PRD F-29）：每素材一条，持久化由 ExportRecordStore（块B）负责。
-struct ExportRecord: Codable, Identifiable, Sendable {
+struct ExportRecord: Codable, Identifiable, Sendable, Equatable {
     let id: UUID
     let assetIdentifier: String
     let kind: MediaKind
