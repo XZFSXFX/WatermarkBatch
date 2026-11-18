@@ -184,14 +184,14 @@ enum EXIFPreserver {
         }
 
         // EXIF：像素尺寸字段
-        if var exif = result[kCGImagePropertyEXIFDictionary as String] as? [String: Any] {
+        if var exif = result[kCGImagePropertyExifDictionary as String] as? [String: Any] {
             if exif[kCGImagePropertyExifPixelXDimension as String] != nil {
                 exif[kCGImagePropertyExifPixelXDimension as String] = width
             }
             if exif[kCGImagePropertyExifPixelYDimension as String] != nil {
                 exif[kCGImagePropertyExifPixelYDimension as String] = height
             }
-            result[kCGImagePropertyEXIFDictionary as String] = exif
+            result[kCGImagePropertyExifDictionary as String] = exif
         }
 
         // MakerApple：Live Photo 的 assetIdentifier（key 17）在此合并，其余键原样保留。

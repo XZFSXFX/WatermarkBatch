@@ -8,7 +8,9 @@
 //
 
 import Foundation
-import UserNotifications
+// UNNotificationSettings 等类型在 Swift 6 严格并发下未标注 Sendable，
+// 按编译器建议用 @preconcurrency 把跨 actor 传递的错误降级为警告。
+@preconcurrency import UserNotifications
 
 @MainActor
 final class NotificationManager: NSObject {

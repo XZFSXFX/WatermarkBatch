@@ -69,9 +69,9 @@ final class PhotoLibraryService: @unchecked Sendable {
         switch status {
         case .authorized, .limited:
             return .full       // limited（部分照片）仍可读取选中范围，映射为完全访问
-        case .addOnly:
-            return .addOnly    // 仅添加：无法读取既有相册——批量导入不可用（§七 注释）
         default:
+            // PHAuthorizationStatus 没有 .addOnly（那是 PHAccessLevel 的成员），
+            // 读取型授权拿不到时一律按拒绝处理，UI 据权限态引导。
             return .denied
         }
     }
@@ -110,7 +110,7 @@ final class PhotoLibraryService: @unchecked Sendable {
             pixelSize: CGSize(width: phAsset.pixelWidth, height: phAsset.pixelHeight),
             duration: (kind == .video || kind == .livePhoto) ? phAsset.duration : nil,
             creationDate: phAsset.creationDate,
-            originalFilename: primary?.filename,
+            originalFilename: primary?.originalFilename,
             isInICloud: false   // 系统无公开 API 同步查询；见 isOriginalInICloud(_:)
         )
     }
@@ -132,14 +132,15 @@ final class PhotoLibraryService: @unchecked Sendable {
     /// RAW 判定：UTI 遵循 public.camera-raw-image（UniformTypeIdentifiers 原生支持，
     /// 覆盖 DNG/CR2/CR3/NEF/ARW 等），或按文件扩展名兜底（UTType 之外的历史后缀）。
     static func isRawResource(_ resource: PHAssetResource) -> Bool {
-        if let uti = resource.uniformTypeIdentifier,
-           let type = UTType(uti),
+        // PHAssetResource.uniformTypeIdentifier 是非可选 String，不能用 if let
+        let uti = resource.uniformTypeIdentifier
+        if let type = UTType(uti),
            type.conforms(to: .rawImage) {
             return true
         }
         let rawExtensions: Set<String> = ["dng", "cr2", "cr3", "nef", "arw", "raf",
                                           "orf", "rw2", "pef", "srw", "3fr", "iiq"]
-        if let ext = resource.filename?.split(separator: ".").last?.lowercased(),
+        if let ext = resource.originalFilename.split(separator: ".").last?.lowercased(),
            rawExtensions.contains(ext) {
             return true
         }
@@ -345,7 +346,7 @@ final class PhotoLibraryService: @unchecked Sendable {
     private func requestOriginalAVAsset(for phAsset: PHAsset,
                                         assetIdentifier: String) async throws -> AVAsset {
         try await withCheckedThrowingContinuation { continuation in
-            nonisolated(unsafe) let phAsset = phAsset
+            let phAsset = phAsset
             let options = PHVideoRequestOptions()
             options.version = .original
             options.isNetworkAccessAllowed = true
@@ -392,7 +393,7 @@ final class PhotoLibraryService: @unchecked Sendable {
         try await downloadCoordinator.writeResource(pairedVideo, to: videoURL) { fraction in
             progress(0.5 + fraction * 0.5)
         }
-        let stillUTI = still.uniformTypeIdentifier ?? "public.heic"
+        let stillUTI = still.uniformTypeIdentifier   // 该属性非可选，无需 ?? 兜底
         return (stillData: stillData, stillUTI: stillUTI, videoURL: videoURL)
     }
 
@@ -444,10 +445,13 @@ final class PhotoLibraryService: @unchecked Sendable {
             throw WatermarkError.assetUnavailable(assetIdentifier: asset.assetIdentifier)
         }
         let avAsset = try await requestOriginalAVAsset(for: phAsset, assetIdentifier: asset.assetIdentifier)
-        guard let track = avAsset.tracks(withMediaType: .video).first else {
+        guard let track = try await avAsset.loadTracks(withMediaType: .video).first else {
             throw WatermarkError.unsupportedFormat("视频无视频轨")
         }
-        guard let description = track.formatDescriptions.compactMap({ $0 as? CMVideoFormatDescription }).first else {
+        // formatDescriptions 已弃用同步属性，改走 async load(.formatDescriptions)；
+        // 元素本身就是 CMFormatDescription（CMVideoFormatDescription 是它的别名），无需再 as?
+        let descriptions = try await track.load(.formatDescriptions)
+        guard let description = descriptions.first else {
             throw WatermarkError.unsupportedFormat("视频轨格式信息缺失")
         }
         let codec = Self.fourCharCodeString(CMFormatDescriptionGetMediaSubType(description))
@@ -456,7 +460,7 @@ final class PhotoLibraryService: @unchecked Sendable {
             extensionKey: kCMFormatDescriptionExtension_BitsPerComponent
         ) as? Int) ?? 0
         var colorPrimaries: String?
-        if let extensions = CMCopyFormatDescriptionExtensions(description) as? [String: Any] {
+        if let extensions = CMFormatDescriptionGetExtensions(description) as? [String: Any] {
             colorPrimaries = extensions[kCMFormatDescriptionExtension_ColorPrimaries as String] as? String
         }
         let uti = primaryResourceUTI(for: asset) ?? "public.movie"

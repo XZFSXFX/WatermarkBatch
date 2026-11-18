@@ -118,11 +118,15 @@ enum LivePhotoPairer {
         }
 
         return await withCheckedContinuation { continuation in
-            let options = PHLivePhotoRequestOptions()
-            options.isNetworkAccessAllowed = false
-            options.deliveryMode = .highQualityFormat
-            PHLivePhoto.request(withResourceFileURL: stillURL,
-                                options: options) { photo, _ in
+            // PHLivePhoto.request 的正确签名是 withResourceFileURLs（复数、[URL]），
+            // 且必须给 placeholderImage / targetSize / contentMode：
+            // request(withResourceFileURLs:placeholderImage:targetSize:contentMode:resultHandler:)
+            _ = PHLivePhoto.request(
+                withResourceFileURLs: [stillURL, videoCopyURL],
+                placeholderImage: nil,
+                targetSize: .zero,
+                contentMode: .aspectFit
+            ) { photo, _ in
                 continuation.resume(returning: photo != nil)
             }
         }
